@@ -1,0 +1,34 @@
+{
+  "name": "sknight-gis",
+  "version": "1.0.0",
+  "description": "GIS extension depend on Openlayers, D3, topoJSON and so on",
+  "main": "index.js",
+  "scripts": {
+    "test": "run"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sknightq/sknight-gis.git"
+  },
+  "keywords": [
+    "GIS",
+    "Openlayers",
+    "D3"
+  ],
+  "author": "sknightq",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/sknightq/sknight-gis/issues"
+  },
+  "homepage": "https://github.com/sknightq/sknight-gis#readme",
+  "devDependencies": {
+    "art-template": "^4.12.2",
+    "d3": "^4.13.0",
+    "ion-rangeslider": "^2.2.0",
+    "jquery": "^3.3.1",
+    "moment": "^2.21.0",
+    "openlayers": "^4.6.4",
+    "topojson": "^3.0.2",
+    "when": "^3.7.8"
+  }
+}

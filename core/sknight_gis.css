@@ -1,0 +1,89 @@
+.map {
+    margin: 0 auto;
+    width: 100% !important;
+}
+
+.ol-popup {
+    position: absolute;
+    background-color: white;
+    -webkit-filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.2));
+    filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.2));
+    padding: 15px;
+    border-radius: 10px;
+    border: 1px solid #cccccc;
+    bottom: 30px;
+    left: -53px;
+    min-width: 280px;
+}
+
+.ol-popup:after,
+.ol-popup:before {
+    top: 100%;
+    border: solid transparent;
+    content: " ";
+    height: 0;
+    width: 0;
+    position: absolute;
+    pointer-events: none;
+}
+
+.ol-popup:after {
+    border-top-color: white;
+    border-width: 10px;
+    left: 48px;
+    margin-left: -10px;
+}
+
+.ol-popup:before {
+    border-top-color: #cccccc;
+    border-width: 11px;
+    left: 48px;
+    margin-left: -11px;
+}
+
+.ol-popup-closer {
+    text-decoration: none;
+    position: absolute;
+    top: 2px;
+    right: 8px;
+}
+
+.ol-popup-closer:after {
+    content: "✖";
+}
+
+#test {
+    width: 200px;
+}
+
+#basemap-switch {
+    position: absolute;
+    right: 60px;
+    top: 10px;
+    z-index: 3;
+    box-shadow: 0 0 20px rgba(188, 188, 188, 0.6);
+}
+
+#basemap-switch .btn {
+    border: 1px solid #d1d1d1;
+    font-size: 12px;
+    padding: 6px;
+    background-color: #fff;
+    color: #000;
+}
+
+#basemap-switch .btn.active {
+    background-color: #31a5d6;
+    color: #fff;
+}
+
+.back-center {
+    top: 5em;
+    left: .5em;
+}
+
+.mouse-position {
+    position: absolute;
+    bottom: .5em;
+    right: .5em;
+}

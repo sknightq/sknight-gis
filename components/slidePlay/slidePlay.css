@@ -1,0 +1,41 @@
+﻿.controls {
+    padding: 10px 20px;
+    background-color: #fff;
+}
+
+.controls-btns {
+    width: 10%;
+    float: left;
+}
+
+.controls-btns {
+    box-sizing: border-box;
+}
+
+.controls-btns .circle-btn {
+    display: inline-block;
+    vertical-align: middle;
+    margin: 0 5px;
+}
+
+.controls-btns .circle-btn:hover {
+    text-decoration: none;
+}
+
+.controls-btns .circle-btn.hide {
+    display: none;
+}
+
+.slide-wrapper {
+    width: 90%;
+    float: right;
+    padding: 0 50px;
+}
+
+.slide-wrapper {
+    box-sizing: border-box;
+}
+
+.gallery {
+    text-align: center;
+}
