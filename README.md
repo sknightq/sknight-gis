@@ -1,8 +1,9 @@
 # Sknight-GIS  
 > 代码维护 sknigt 
-> 当前版本 v0.2.9  
+> 当前版本 v0.3.0  
 > 兼容性 IE9+ chrome（IE9下需要打2个JS补丁，截图功能只能在高版本浏览器中实现）  
 > todo 将D3升级到V4或者V5版本, 目前wind相关的DEMO请看d3.v3-map.html  
+> 感谢[Cameron Beccario](https://github.com/cambecc/air) 代码分享
 
 ## 1.版本  
 ### v0.3.0  
