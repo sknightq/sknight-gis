@@ -26,8 +26,8 @@
       layers: {
         baseMap: [{
           label: '基础底图',
-          //url: 'http://t{0,1,2,3,4,5,6}.tianditu.com/DataServer?T=cva_w&x=[x]&y=[y]&l=[z]',
-          url: 'http://t5.tianditu.com/DataServer?T=vec_w&x={x}&y={y}&l={z}',
+          url: 'http://mt{0-3}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',
+          //url: 'http://t5.tianditu.com/DataServer?T=vec_w&x={x}&y={y}&l={z}',
           layerName: 'basic',
         }
           // {
@@ -83,6 +83,16 @@
       // }
     };
     var map = sntMap(gisOptions);
+    var extent = [113.143497,22.054454,113.413314,22.185721];
+    map.addContourImg('http://127.0.0.1:8080/test.svg', 'test',
+      extent, [239.98,239.98], 1)
+    // 转换为web merctor投影
+    var destinationPro = "EPSG:3857";
+    // 地理原始投影
+    var sourcePro = "EPSG:4326";
+    map.on("singleclick", function (e) {
+      console.log(ol.proj.transform(e.coordinate, destinationPro, sourcePro));
+    });
   </script>
 </body>
 
