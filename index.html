@@ -1,13 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="X-UA-Compatible" content="ie=edge">
   <title>Simple Demo</title>
-  <link rel="stylesheet" href="./node_modules/openlayers/dist/ol.css">
-  <link rel="stylesheet" href="./core/sknight_gis.css">
+  <link rel="stylesheet" href="./lib/ol/ol.css" />
+  <link rel="stylesheet" href="./core/sknight_gis.css" />
 </head>
 
 <body>
@@ -16,9 +15,9 @@
     <script src="./polyfill/classList.min.js"></script>
     <script src="./polyfill/request-animation-frame.js"></script>
   <![endif]-->
-  <script src="./node_modules/jquery/dist/jquery.min.js"></script>
-  <script src="./node_modules/openlayers/dist/ol.js"></script>
-  <script src="./node_modules/art-template/lib/template-web.js"></script>
+  <script src="./lib/utility/jquery.min.js"></script>
+  <script src="./lib/utility/template-web.js"></script>
+  <script src="./lib/ol/ol.js"></script>
   <script src="./core/sknight_gis.js"></script>
   <script>
     var gisOptions = {
@@ -26,20 +25,18 @@
       layers: {
         baseMap: [{
           label: '基础底图',
-          url: 'http://mt{0-3}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',
-          //url: 'http://t5.tianditu.com/DataServer?T=vec_w&x={x}&y={y}&l={z}',
+          url: 'https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',
           layerName: 'basic',
-        }
-          // {
-          //     label: '街道底图',
-          //     url: 'https://api.mapbox.com/styles/v1/sknight/ciy13vljr004f2so6gd293aaz/tiles/256/{z}/{x}/{y}' + access_token,
-          //     layerName: 'street',
-          // }, {
-          //     label: '卫星底图',
-          //     url: 'https://api.mapbox.com/styles/v1/sknight/cizhzfx9z000g2spapja22psw/tiles/256/{z}/{x}/{y}' + access_token,
-          //     layerName: 'satellite',
-          // }
-        ],
+        },
+        {
+          label: '混合底图',
+          url: 'https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',
+          layerName: 'street',
+        }, {
+          label: '卫星底图',
+          url: 'https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',
+          layerName: 'satellite',
+        }],
         boundary: {
           enable: true,
           items: [{
@@ -83,9 +80,6 @@
       // }
     };
     var map = sntMap(gisOptions);
-    var extent = [113.143497,22.054454,113.413314,22.185721];
-    map.addContourImg('http://127.0.0.1:8080/test.svg', 'test',
-      extent, [239.98,239.98], 1)
     // 转换为web merctor投影
     var destinationPro = "EPSG:3857";
     // 地理原始投影

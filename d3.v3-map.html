@@ -3,67 +3,67 @@
 
 <head>
   <meta charset="utf-8" />
-  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
   <meta content="width=device-width, initial-scale=1" name="viewport" />
   <title>Wind Animation Demo</title>
-  <link rel="stylesheet" href="./node_modules/openlayers/dist/ol.css">
-  <link rel="stylesheet" href="./core/sknight_gis.css">
+  <link rel="stylesheet" href="./lib/ol/ol.css" />
+  <link rel="stylesheet" href="./core/sknight_gis.css" />
 </head>
 
 <body>
   <div id="map" class="map"></div>
   <!--[if lte IE 9]>
-    <script src="./polyfill/classList.min.js"></script>
-    <script src="./polyfill/request-animation-frame.js"></script>
-  <![endif]-->
-  <script src="./node_modules/jquery/dist/jquery.min.js"></script>
-  <script src="./node_modules/openlayers/dist/ol.js"></script>
-  <script src="./node_modules/art-template/lib/template-web.js"></script>
-  <script src="./node_modules/topojson/dist/topojson.min.js"></script>
-  <script src="./node_modules/when/dist/browser/when.js"></script>
+      <script src="./polyfill/classList.min.js"></script>
+      <script src="./polyfill/request-animation-frame.js"></script>
+    <![endif]-->
+  <script src="./lib/utility/jquery.min.js"></script>
+  <script src="./lib/utility/template-web.js"></script>
+  <script src="./lib/ol/ol.js"></script>
+  <script src="./lib/topojson/topojson.min.js"></script>
+  <script src="./lib/when/when.js"></script>
   <script src="./lib/d3-v3/d3.min.js"></script>
   <script src="./core/mvi.js"></script>
   <script src="./components/wind/wind-d3.v3.js"></script>
   <script src="./core/sknight_gis.js"></script>
   <script>
     $(function () {
-
       var width = $(window).width();
       var height = $(window).height();
-      $('#map').css({
-        'width': width,
-        'height': height - 80
+      $("#map").css({
+        width: width,
+        height: height - 80
       });
 
-
       var gisOptions = {
-        target: document.getElementById('map'),
+        target: document.getElementById("map"),
         layers: {
-          baseMap: [
-            {
-              label: '基础底图',
-              //url: 'http://t{0,1,2,3,4,5,6}.tianditu.com/DataServer?T=cva_w&x=[x]&y=[y]&l=[z]',
-              url: 'http://t5.tianditu.com/DataServer?T=vec_w&x={x}&y={y}&l={z}',
-              layerName: 'basic',
-            },
-
-            //{
-            //     label: '卫星底图',
-            //     url: 'https://api.mapbox.com/styles/v1/sknight/cizhzfx9z000g2spapja22psw/tiles/256/{z}/{x}/{y}' + access_token,
-            //     layerName: 'satellite',
-            // }
-          ],
+          baseMap: [{
+            label: '基础底图',
+            url: 'https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',
+            layerName: 'basic',
+          },
+          {
+            label: '混合底图',
+            url: 'https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',
+            layerName: 'street',
+          }, {
+            label: '卫星底图',
+            url: 'https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',
+            layerName: 'satellite',
+          }],
           boundary: {
             enable: false,
-            items: [{
-              name: 'boundary',
-              url: './data/boundary-nb.json',
-            }]
+            items: [
+              {
+                name: "boundary",
+                url: "./data/boundary-nb.json"
+              }
+            ]
           }
         },
         view: {
           center: [121.5472412109375, 29.870419710858783],
-          zoom: 8,
+          zoom: 8
           //minZoom: 9,
           //maxZoom: 13
         },
@@ -87,7 +87,7 @@
           draw: false,
           switchBaseMap: true, // 底图切换
           mousePosition: true
-        },
+        }
         // extent: {
         //     bound: [
         //         [121.208840, 29.755223],
@@ -97,9 +97,13 @@
       };
       var map = sntMap(gisOptions);
 
-      map.once('postrender', function () {
-
-        var canvasFunctions = wind.init('./data/air/ningbo.topo.json', './data/air/current-ningbo.json', './data/air/stations-ningbo.json', map);
+      map.once("postrender", function () {
+        var canvasFunctions = wind.init(
+          "./data/air/ningbo.topo.json",
+          "./data/air/current-ningbo.json",
+          "./data/air/stations-ningbo.json",
+          map
+        );
         map.d3Layer(canvasFunctions.particle);
         map.d3Layer(canvasFunctions.contour);
       });
