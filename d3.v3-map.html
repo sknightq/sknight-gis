@@ -6,7 +6,8 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta content="width=device-width, initial-scale=1" name="viewport" />
   <title>Wind Animation Demo</title>
-  <link rel="stylesheet" href="./node_modules/openlayers/dist/ol.css">
+  <!--link rel="stylesheet" href="./node_modules/openlayers/dist/ol.css"-->
+  <link rel="stylesheet" href="https://openlayers.org/en/v4.6.5/css/ol.css">
   <link rel="stylesheet" href="./core/sknight_gis.css">
 </head>
 
@@ -16,11 +17,16 @@
     <script src="./polyfill/classList.min.js"></script>
     <script src="./polyfill/request-animation-frame.js"></script>
   <![endif]-->
-  <script src="./node_modules/jquery/dist/jquery.min.js"></script>
+  <!--script src="./node_modules/jquery/dist/jquery.min.js"></script>
   <script src="./node_modules/openlayers/dist/ol.js"></script>
   <script src="./node_modules/art-template/lib/template-web.js"></script>
   <script src="./node_modules/topojson/dist/topojson.min.js"></script>
-  <script src="./node_modules/when/dist/browser/when.js"></script>
+  <script src="./node_modules/when/dist/browser/when.js"></script-->
+  <script src="https://cdn.bootcss.com/jquery/1.12.3/jquery.min.js"></script>
+  <script src="https://openlayers.org/en/v4.6.5/build/ol.js"></script>
+  <script src="https://raw.githubusercontent.com/aui/art-template/v4.12.1/lib/template-web.js"></script>
+  <script src="https://cdn.bootcss.com/topojson/3.0.2/topojson.min.js"></script>
+  <script src="https://cdn.bootcss.com/when/3.7.8/when.min.js"></script>
   <script src="./lib/d3-v3/d3.min.js"></script>
   <script src="./core/mvi.js"></script>
   <script src="./components/wind/wind-d3.v3.js"></script>
@@ -43,7 +49,7 @@
             {
               label: '基础底图',
               //url: 'http://t{0,1,2,3,4,5,6}.tianditu.com/DataServer?T=cva_w&x=[x]&y=[y]&l=[z]',
-              url: 'http://t5.tianditu.com/DataServer?T=vec_w&x={x}&y={y}&l={z}',
+              url: 'https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',
               layerName: 'basic',
             },
 
