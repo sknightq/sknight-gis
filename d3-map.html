@@ -6,7 +6,7 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta content="width=device-width, initial-scale=1" name="viewport" />
   <title>Wind Animation Demo</title>
-  <link rel="stylesheet" href="./node_modules/openlayers/dist/ol.css">
+  <link rel="stylesheet" href="./lib/ol/ol.css">
   <link rel="stylesheet" href="./core/sknight_gis.css">
 </head>
 
@@ -16,12 +16,12 @@
     <script src="./polyfill/classList.min.js"></script>
     <script src="./polyfill/request-animation-frame.js"></script>
   <![endif]-->
-  <script src="./node_modules/jquery/dist/jquery.min.js"></script>
-  <script src="./node_modules/openlayers/dist/ol.js"></script>
-  <script src="./node_modules/art-template/lib/template-web.js"></script>
-  <script src="./node_modules/topojson/dist/topojson.min.js"></script>
-  <script src="./node_modules/when/dist/browser/when.js"></script>
-  <script src="./node_modules/d3/build/d3.min.js"></script>
+  <script src="./lib/utility/jquery.min.js"></script>
+  <script src="./lib/utility/template-web.js"></script>
+  <script src="./lib/ol/ol.js"></script>
+  <script src="./lib/topojson/topojson.min.js"></script>
+  <script src="./lib/when/when.js"></script>
+  <script src="./lib/d3-v3/d3.min.js"></script>
   <!-- <script src="./node_modules/d3-path/build/d3-path.js"></script>
   <script src="./node_modules/d3-geo/build/d3-geo.js"></script> -->
   <script src="./core/mvi.js"></script>
@@ -29,7 +29,6 @@
   <script src="./core/sknight_gis.js"></script>
   <script>
     $(function () {
-
       var width = $(window).width();
       var height = $(window).height();
       $('#map').css({

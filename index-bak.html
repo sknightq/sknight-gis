@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>Simple Demo</title>
+  <link rel="stylesheet" href="./lib/ol/ol.css">
+  <link rel="stylesheet" href="./core/sknight_gis.css">
+</head>
+
+<body>
+  <div id="map"></div>
+  <!--[if lte IE 9]>
+    <script src="./polyfill/classList.min.js"></script>
+    <script src="./polyfill/request-animation-frame.js"></script>
+  <![endif]-->
+  <script src="./lib/utility/jquery.min.js"></script>
+  <script src="./lib/ol/ol.js"></script>
+  <script src="./lib/utility/template-web.js"></script>
+  <script src="./core/utility.js"></script>
+  <script src="./core/sknight_gis.js"></script>
+  <script src='https://npmcdn.com/@turf/turf/turf.min.js'></script>
+  <script>
+    var access_token = "?access_token=pk.eyJ1Ijoic2tuaWdodCIsImEiOiJjaXg3YWU4ZXMwMTc2MnhxeWljanJnZGNxIn0.pozkMI1zmVRRsfEJglAsmg";
+    var gisOptions = {
+      target: document.getElementById('map'),
+      layers: {
+        baseMap: [{
+          label: '基础底图',
+          // url: 'http://mt{0-3}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',
+          url: '',
+          layerName: 'basic',
+        },
+        {
+          label: '街道底图',
+          url: 'https://api.mapbox.com/styles/v1/sknight/ciy13vljr004f2so6gd293aaz/tiles/256/{z}/{x}/{y}' + access_token,
+          layerName: 'street',
+        }, {
+          label: '卫星底图',
+          //url: 'https://api.mapbox.com/styles/v1/sknight/cizhzfx9z000g2spapja22psw/tiles/256/{z}/{x}/{y}' + access_token,
+          url: 'https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',
+          layerName: 'satellite',
+        }
+        ],
+        boundary: {
+          enable: false,
+          items: [{
+            name: 'boundary',
+            url: './data/boundary-nb.json',
+            // width: 5,
+            // color: '#00ff00',
+            // fillColor: '#00ff00'
+          }]
+        }
+      },
+      view: {
+        center: [121.48921966552733, 29.30916621811309],
+        zoom: 13,
+        //minZoom: 9,
+        //maxZoom: 13
+      },
+      controls: {
+        // 全屏功能
+        fullScreen: {
+          enable: true
+        },
+        // 鹰眼功能
+        overviewMap: {
+          enable: true
+        },
+        //回归中心点
+        setCenter: {
+          enable: true
+        }
+      },
+      tools: {
+        title: false, // 标题
+        popup: true, // 弹出框
+        draw: true,
+        switchBaseMap: true, // 底图切换
+        mousePosition: true
+      },
+      // extent: {
+      //     bound: [
+      //         [121.208840, 29.755223],
+      //         [122.018881, 30.302205]
+      //     ]
+      // }
+    };
+
+
+
+    var map = sntMap(gisOptions);
+
+
+
+    var extent = [121.133843, 29.027430, 121.858998, 29.587898];
+    map.addContourImg('http://127.0.0.1:8080/test.png', 'test',
+      extent, [1058, 935], 1)
+    // 转换为web merctor投影
+    var destinationPro = "EPSG:3857";
+    // 地理原始投影
+    var sourcePro = "EPSG:4326";
+
+    map.on("singleclick", function (e) {
+      console.log(ol.proj.transform(e.coordinate, destinationPro, sourcePro));
+    });
+
+    let center = {};
+    const clockwise = (p1, p2) => {
+      if (!center.x || !center.y) {
+        console.error('Get center point first');
+        return;
+      }
+      const a = {
+        x: p1[0],
+        y: p1[1]
+      }
+      const b = {
+        x: p2[0],
+        y: p2[1]
+      }
+
+      if (a.x - center.x >= 0 && b.x - center.x < 0)
+        return 1;
+      if (a.x - center.x < 0 && b.x - center.x >= 0)
+        return -1;
+      if (a.x - center.x == 0 && b.x - center.x == 0) {
+        if (a.y - center.y >= 0 || b.y - center.y >= 0)
+          return a.y > b.y ? 1 : -1;
+        return b.y > a.y ? 1 : -1;
+      }
+
+      // compute the cross product of vectors (center -> a) x (center -> b)
+      const det = (a.x - center.x) * (b.y - center.y) - (b.x - center.x) * (a.y - center.y);
+      if (det < 0)
+        return 1;
+      if (det > 0)
+        return -1;
+
+      // points a and b are on the same line from the center
+      // check which point is closer to the center
+      const d1 = (a.x - center.x) * (a.x - center.x) + (a.y - center.y) * (a.y - center.y);
+      const d2 = (b.x - center.x) * (b.x - center.x) + (b.y - center.y) * (b.y - center.y);
+      return d1 > d2 ? 1 : -1;
+    }
+
+
+    const getCenter = (points) => {
+      const collections = [];
+      for (let i = 0; i < points.length; i++) {
+        collections.push(turf.point([points[i][0], points[i][1]]))
+      }
+      const features = turf.featureCollection(collections)
+      const center = turf.center(features)
+      console.log('center: %O', center)
+      map.renderLayer([center], 'temp', { image: { type: 'circle', anchor: [0.5, 0.5] }, text: { enable: false } })
+      return center
+    }
+    // get a coordinate by code
+    setTimeout(function () {
+      let canvas = document.getElementsByClassName('ol-unselectable')
+      let ctx = canvas[0].getContext("2d");
+      let targetPixelCount = 0;
+      // imgData Array length = canvas.width * canvas.height * 4
+      const w = ctx.canvas.clientWidth;
+      const h = ctx.canvas.clientHeight;
+      const imgData = ctx.getImageData(0, 0, w, h);
+      const step = 1;
+      const selectPoints = [];
+      const selectCoords = [];
+      const selectCoords1 = [];
+      const aArray = [];
+      // console.log('imgData: %O', imgData);
+      for (let x = 0; x < w; x+=step) {
+        //const xStep = Math.floor((Math.random()*8)+1);
+        for (let y = 0; y < h; y+=step) {
+          //const yStep = Math.floor((Math.random()*5)+1);
+          const i = (y * w + x) * 4
+          const r = imgData.data[i];
+          const g = imgData.data[i + 1];
+          const b = imgData.data[i + 2];
+          const a = imgData.data[i + 3];
+          if (r === 206 && g === 17 && b === 117 && a === 152) {
+            aArray.push(a);
+            selectPoints.push([x, y])
+            targetPixelCount++;
+            // console.log('I got it haha!');
+            const coordinate = map.getCoordinateFromPixel([x, y]);
+            selectCoords.push(coordinate);
+            const coor = ol.proj.transform(coordinate, destinationPro, sourcePro);
+            selectCoords1.push(coor);
+            //  console.log('coordinates: %O', coor);
+          }
+          //y += yStep;
+        }
+        //x += xStep;
+      }
+      const centerCoor = getCenter(selectCoords1);
+      const originalCoor = ol.proj.transform(centerCoor.geometry.coordinates, sourcePro, destinationPro);
+      const centerXY = map.getPixelFromCoordinate(originalCoor);
+      console.log('centerXY: %O', centerXY);
+      console.log('a: %O', aArray);
+      center = {
+        x: centerXY[0],
+        y: centerXY[1]
+      };
+
+      selectPoints.sort(clockwise);
+      const results = [];
+      const resultsCoor = [];
+      for (let i = 0; i < selectPoints.length; i++) {
+        const tempP = map.getCoordinateFromPixel([selectPoints[i][0], selectPoints[i][1]]);
+        const resultP = ol.proj.transform(tempP, destinationPro, sourcePro);
+        const geometry = {
+          coordinates: resultP,
+          type: "Point"
+        }
+        const geo = {
+          geometry: geometry,
+          properties: { station_value: '' + i,station_name: '' + i },
+          type: "Feature"
+        }
+        results.push(geo)
+        resultsCoor.push(resultP)
+      }
+      resultsCoor.push(resultsCoor[0]);
+      console.log('results:%O', results);
+      console.log('resultsP: %O', resultsCoor);
+      map.renderLayer(results, 'results', { image: { type: 'circle', anchor: [0.5, 0.5] } })
+
+      // TODO: coordinates根据边界轮廓顺时针排序
+      console.log('targetColor: %O', targetPixelCount);
+      console.log('finished');
+    }, 3000)
+  </script>
+</body>
+
+</html>
