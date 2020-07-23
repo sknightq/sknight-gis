@@ -30,13 +30,16 @@ class OlMap {
     target: document.getElementById('map'),
     layers: {
       crossOrigin: null,
-      baseMap: [
-        {
-          label: '基础底图',
-          url: 'https://b.tile.openstreetmap.org/{z}/{x}/{y}.png',
-          layerName: 'basic'
-        }
-      ]
+      baseMap: {
+        tiles: [
+          {
+            label: '基础底图',
+            url: 'https://b.tile.openstreetmap.org/{z}/{x}/{y}.png',
+            layerName: 'basic'
+          }
+        ],
+        labels: []
+      }
     },
     view: {
       center: [-472202, 7530279],
@@ -64,7 +67,8 @@ class OlMap {
   }
 
   zIndex = {
-    baseLayer: 50, //底图
+    baseTileLayer: 50, //底图
+    baseLabelLayer: 60,
     overlay: 100, //普通层
     boundary: 150, //边界
     contour: 405,
@@ -114,18 +118,33 @@ class OlMap {
   layers = function(options) {
     var layers = []
     // 底图
-    var baseLayer = new TileLayer({
-      name: options.baseMap[0].layerName,
+    var baseTileLayer = new TileLayer({
+      name: options.baseMap.tiles[0].layerName,
       source: new XYZ({
-        url: options.baseMap[0].url,
+        url: options.baseMap.tiles[0].url,
         crossOrigin: options.crossOrigin,
         tileLoadFunction: function(tile, src) {
           tile.getImage().src = src
         }
       })
     })
-    baseLayer.setZIndex(this.zIndex['baseLayer'])
-    layers.push(baseLayer)
+    baseTileLayer.setZIndex(this.zIndex['baseTileLayer'])
+    layers.push(baseTileLayer)
+
+    for (let i = 0; i < options.baseMap.labels.length; i++) {
+      const baseLabelLayer = new TileLayer({
+        name: options.baseMap.labels[i].layerName + i,
+        source: new XYZ({
+          url: options.baseMap.labels[i].url,
+          crossOrigin: options.crossOrigin,
+          tileLoadFunction: function(tile, src) {
+            tile.getImage().src = src
+          }
+        })
+      })
+      baseLabelLayer.setZIndex(this.zIndex['baseLabelLayer'] + i)
+      layers.push(baseLabelLayer)
+    }
 
     // 行政边界
     if (options.boundary.enable) {
@@ -246,6 +265,30 @@ OlMap.prototype.tools = function() {
   })
   // 切换底图功能
   if (options.tools.switchTile) {
+  }
+}
+/**
+ * @name   getTileXYZ
+ * @param  {Array} extent 区域经纬度
+ * @param  {Number} z 区域经纬度
+ * @return {Object} 该级别下最小最到x,y
+ * @description 获取某个区域内瓦片图的x,y,z
+ * https://blog.csdn.net/love_data_scientist/article/details/78556382?utm_source=blogxgwz5
+ * https://wiki.openstreetmap.org/wiki/Slippy_map_tilenames#Tile_servers
+ */
+OlMap.prototype.getTileXYZ = function(extent, z) {
+  const n = 2 ** z
+  const pi = Math.PI
+  const minX = Math.floor((n * (extent[0] + 180)) / 360)
+  const maxX = Math.ceil((n * (extent[2] + 180)) / 360)
+  const minY = Math.floor((n * (1 - Math.log(Math.tan((extent[3] * pi) / 180) + 1 / Math.cos((extent[3] * pi) / 180)) / pi)) / 2)
+  const maxY = Math.ceil((n * (1 - Math.log(Math.tan((extent[1] * pi) / 180) + 1 / Math.cos((extent[1] * pi) / 180)) / pi)) / 2)
+
+  return {
+    minX,
+    minY,
+    maxX,
+    maxY
   }
 }
 /**
