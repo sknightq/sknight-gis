@@ -1,19 +1,10 @@
-/**
- * @author sknight
- * @requires ol,jquery,artTemplate
- * @description 地图实例化，实例化可展示基础地图
- * @see openlayers API http://openlayers.org/en/latest/apidoc/
- * @see 投影讲解 http://hmfly.info/2012/10/17/mercator%E9%82%A3%E4%BA%9B%E4%BA%8B%E5%84%BF/
- * @see mapbox https://www.mapbox.com/api-documentation/#maps
- *
- */
 import 'ol/ol.css'
-import { Map, View, Feature } from 'ol'
+import { Map, View, Feature, Overlay } from 'ol'
 import GeoJSON from 'ol/format/GeoJSON'
 import { defaults as defaultControls, FullScreen, OverviewMap } from 'ol/control'
 import { transform, transformExtent } from 'ol/proj'
 import { boundingExtent } from 'ol/extent'
-import { Tile as TileLayer, Vector as VectorLayer } from 'ol/layer'
+import { Tile as TileLayer, Vector as VectorLayer, Heatmap as HeatmapLayer } from 'ol/layer'
 import * as geom from 'ol/geom'
 import { Stroke, Style, Fill, Circle, Text, Icon } from 'ol/style'
 import { XYZ, Vector as VectorSource } from 'ol/source'
@@ -30,16 +21,13 @@ class OlMap {
     target: document.getElementById('map'),
     layers: {
       crossOrigin: null,
-      baseMap: {
-        tiles: [
-          {
-            label: '基础底图',
-            url: 'https://b.tile.openstreetmap.org/{z}/{x}/{y}.png',
-            layerName: 'basic'
-          }
-        ],
-        labels: []
-      }
+      baseMap: [
+        {
+          label: '基础底图',
+          url: 'https://b.tile.openstreetmap.org/{z}/{x}/{y}.png',
+          layerName: 'basic'
+        }
+      ]
     },
     view: {
       center: [-472202, 7530279],
@@ -58,8 +46,11 @@ class OlMap {
       }
     },
     tools: {
-      popup: false, // 弹出框
-      switchTile: false //底图切换
+      popup: {
+        enable: false, // 弹出框
+        refs: null
+      },
+      switchTile: false // 底图切换
     },
     extent: {
       bound: []
@@ -67,24 +58,27 @@ class OlMap {
   }
 
   zIndex = {
-    baseTileLayer: 50, //底图
-    baseLabelLayer: 60,
-    overlay: 100, //普通层
-    boundary: 150, //边界
+    baseTileLayer: 50, // 瓦片底图
+    baseLableLayer: 60, // 标注底图
+    overlay: 100, // 普通层
+    boundary: 150, // 边界
+    heat: 300, // 热力图
     contour: 405,
     topo: 410,
     draw: 450,
-    station: 500, //站点
+    station: 500, // 站点
     stationName: 501,
     stationValue: 502,
-    popup: 750, //弹框
-    control: 1000 //控件
+    popup: 750, // 弹框
+    control: 1000 // 控件
   }
-
+  status = {
+    popupable: []
+  }
   // feature 默认样式
   featureStyle = {
     image: {
-      opacity: '0.75',
+      opacity: '1',
       scale: 0.6,
       size: [100, 100],
       radius: 5,
@@ -94,9 +88,9 @@ class OlMap {
       strokeWidth: 1
     },
     text: {
-      font: '14px 微软雅黑',
-      fillColor: 'rgba(255,255,255, 1)',
-      strokeColor: 'rgba(160, 160, 160, 1)',
+      font: '12px 微软雅黑',
+      fillColor: 'rgba(0, 21, 41, 1)',
+      strokeColor: 'rgba(255, 255, 255, 1)',
       strokeWidth: 1
     },
     geometry: {
@@ -116,9 +110,9 @@ class OlMap {
     })
   }
   layers = function(options) {
-    var layers = []
+    const layers = []
     // 底图
-    var baseTileLayer = new TileLayer({
+    const baseTileLayer = new TileLayer({
       name: options.baseMap.tiles[0].layerName,
       source: new XYZ({
         url: options.baseMap.tiles[0].url,
@@ -208,7 +202,7 @@ class OlMap {
 
   constructor(settings) {
     this.options = extend(true, {}, this.defaults, settings)
-
+    this.$element = this.options.target
     const extent = boundingExtent(this.options.extent.bound)
 
     if (Array.isArray(extent) && this.options.extent.bound.length > 1) {
@@ -229,15 +223,15 @@ class OlMap {
     }
 
     this.setStatus = function(statusName, statusValue) {
-      if (status[statusName] instanceof Array) {
-        status[statusName].push(statusValue)
+      if (this.status[statusName] instanceof Array) {
+        this.status[statusName].push(statusValue)
       } else {
-        status[statusName] = statusValue
+        this.status[statusName] = statusValue
       }
     }
 
     this.getStatus = function(statusName) {
-      return status[statusName]
+      return this.status[statusName]
     }
 
     this.getTextStyle = function(name) {
@@ -266,29 +260,65 @@ OlMap.prototype.tools = function() {
   // 切换底图功能
   if (options.tools.switchTile) {
   }
-}
-/**
- * @name   getTileXYZ
- * @param  {Array} extent 区域经纬度
- * @param  {Number} z 区域经纬度
- * @return {Object} 该级别下最小最到x,y
- * @description 获取某个区域内瓦片图的x,y,z
- * https://blog.csdn.net/love_data_scientist/article/details/78556382?utm_source=blogxgwz5
- * https://wiki.openstreetmap.org/wiki/Slippy_map_tilenames#Tile_servers
- */
-OlMap.prototype.getTileXYZ = function(extent, z) {
-  const n = 2 ** z
-  const pi = Math.PI
-  const minX = Math.floor((n * (extent[0] + 180)) / 360)
-  const maxX = Math.ceil((n * (extent[2] + 180)) / 360)
-  const minY = Math.floor((n * (1 - Math.log(Math.tan((extent[3] * pi) / 180) + 1 / Math.cos((extent[3] * pi) / 180)) / pi)) / 2)
-  const maxY = Math.ceil((n * (1 - Math.log(Math.tan((extent[1] * pi) / 180) + 1 / Math.cos((extent[1] * pi) / 180)) / pi)) / 2)
+  if (options.tools.popup.enable) {
+    // 用组建去获取
+    const container = options.tools.popup.refs
+    const content = options.tools.popup.refs.querySelector('#popup-content')
+    const closer = options.tools.popup.refs.querySelector('#popup-closer')
 
-  return {
-    minX,
-    minY,
-    maxX,
-    maxY
+    const overlay = new Overlay({
+      id: 'popup',
+      offset: options.tools.popup.offset,
+      element: container,
+      autoPan: true, // 弹窗全部显示在地图中
+      positioning: 'center-center',
+      autoPanAnimation: {
+        duration: 250
+      }
+    })
+
+    // 增加popup的overlay层
+    this.map.addOverlay(overlay)
+
+    this.map.on('singleclick', e => {
+      const feature = this.map.forEachFeatureAtPixel(e.pixel, feature => feature)
+      if (feature) {
+        let layerName = ''
+        const hit = this.map.forEachFeatureAtPixel(e.pixel, (feature, layer) => {
+          if (layer && this.getStatus('popupable').includes(layer.get('name'))) {
+            layerName = layer.get('name')
+            return true
+          } else {
+            overlay.setPosition(undefined)
+            closer.blur()
+            return false
+          }
+        })
+
+        if (hit) {
+          const coordinates = feature.getProperties().center
+          const stationInfo = feature.get('info') ? feature.get('info') : ''
+          const event = document.createEvent('HTMLEvents')
+          // 初始化
+          event.initEvent('stationclick', false, false)
+          // 弹窗里的参数
+          event.params = {
+            info: stationInfo,
+            overlay,
+            container: content,
+            layerName,
+            coordinates
+          }
+          // 触发, 即弹出文字
+          this.$element.dispatchEvent(event)
+        }
+        return false
+      } else {
+        overlay.setPosition(undefined)
+        closer.blur()
+        return false
+      }
+    })
   }
 }
 /**
@@ -342,6 +372,30 @@ OlMap.prototype.removeLayers = function(layerNames) {
     })
   }
 }
+OlMap.prototype.transformCoordinates = function(coordinates) {
+  return transform(coordinates, this.DATA_PROJ, this.DEAFAULT_PROJ)
+}
+
+OlMap.prototype.moveFeature = function(layerName, featureId, opts) {
+  const layer = this.map.getLayer(layerName)
+  const source = layer.getSource()
+  const feature = source.getFeatureById(featureId)
+  let geometry = null
+  if (opts.type === 'Polygon') {
+    const regularPolygon = this.getRegularPolygonCoordinate(opts.edgeNum, opts.edgeLen, opts.coordinates, true)
+    const tempCoordinates = []
+    tempCoordinates.push(regularPolygon)
+    geometry = new geom[opts.type](tempCoordinates).transform(this.DATA_PROJ, this.DEAFAULT_PROJ)
+  } else {
+    geometry = new geom[opts.type](opts.coordinates).transform(this.DATA_PROJ, this.DEAFAULT_PROJ)
+  }
+  let properties = feature.getProperties()
+  properties.center = transform(opts.coordinates, this.DATA_PROJ, this.DEAFAULT_PROJ)
+  feature.setProperties(properties)
+  feature.setGeometry(geometry)
+  // feature.setStyle(feature.getStyle())
+  // source.addFeature(feature)
+}
 
 /**
  * @name   getRegularPolygonCoordinate
@@ -376,14 +430,13 @@ OlMap.prototype.getRegularPolygonCoordinate = function(edgeNum, edgeLen, center,
   // 正四边形，x依次为r*sin(π/4), r*sin(π/4 + 2π/4), r*sin(π/4 + (2π/4)*2)...
   for (let i = 0; i < edgeNum; i++) {
     // var x = r * Math.sin(startDegree + i * ((2 * π) / edgeNum))
-
     corners[i] = []
     corners[i][0] = r * Math.sin(startDegree + i * ((2 * π) / edgeNum))
     corners[i][1] = r * Math.cos(startDegree + i * ((2 * π) / edgeNum))
   }
 
   for (let i = 0; i < corners.length; i++) {
-    var distanceLon = corners[i][0] / (earthR * Math.cos((π * lat) / 180)),
+    const distanceLon = corners[i][0] / (earthR * Math.cos((π * lat) / 180)),
       distanceLat = corners[i][1] / earthR
 
     cornersLonLat[i] = []
@@ -440,7 +493,23 @@ OlMap.prototype.connectLine = function(points, layerName, color, width) {
   // update source of layer
   layer.setSource(layerSource)
 }
-
+OlMap.prototype.heatmap = function(features, name, visible = true, blur = 20, radius = 20) {
+  const heatmap = new HeatmapLayer({
+    className: 'ol-layer-heatmap',
+    name,
+    visible,
+    source: new VectorSource({
+      features
+    }),
+    blur,
+    radius,
+    zIndex: this.getZIndex('heat'),
+    weight: function(feature) {
+      return feature.getProperties().value
+    }
+  })
+  this.map.addLayer(heatmap)
+}
 /**
  * @name renderLayer
  * @param  {array} points 图层features数据（GeoJson格式）
@@ -454,6 +523,7 @@ OlMap.prototype.renderLayer = function(points, name, customOpt) {
     pointName: 'pointName',
     pointId: 'pointId',
     pointValue: 'pointValue',
+    pointLayer: '',
     pointType: 'point',
     zIndex: this.getZIndex(name),
     image: {
@@ -495,6 +565,7 @@ OlMap.prototype.renderLayer = function(points, name, customOpt) {
       }
     },
     geometry: {
+      enable: true,
       styleType: 'all',
       fill: {
         color: this.getGeometryStyle('fillColor')
@@ -534,8 +605,10 @@ OlMap.prototype.renderLayer = function(points, name, customOpt) {
       let geometry = null
       // 根据类型来执行对应方法
       if (method === 'Polygon' && point.geometry.coordinates.length === 2 && !(point.geometry.coordinates[0] instanceof Array)) {
-        var regularPolygon = this.getRegularPolygonCoordinate(opt.geometry.edgeNum, opt.geometry.edgeLen, point.geometry.coordinates, true)
-        var tempCoordinates = []
+        const edgeNum = opt.geometry.styleType === 'all' ? opt.geometry.edgeNum : point.properties.edgeNum
+        const edgeLen = opt.geometry.styleType === 'all' ? opt.geometry.edgeLen : point.properties.edgeLen
+        const regularPolygon = this.getRegularPolygonCoordinate(edgeNum, edgeLen, point.geometry.coordinates, true)
+        const tempCoordinates = []
         tempCoordinates.push(regularPolygon)
         geometry = new geom[method](tempCoordinates).transform(this.DATA_PROJ, this.DEAFAULT_PROJ)
       } else {
@@ -543,9 +616,10 @@ OlMap.prototype.renderLayer = function(points, name, customOpt) {
       }
       feature = new Feature({
         geometry: geometry,
+        center: transform(point.geometry.coordinates, this.DATA_PROJ, this.DEAFAULT_PROJ),
         name: point.properties[opt.pointName],
         value: point.properties[opt.pointValue],
-        info: point.properties
+        data: point.properties
       })
       // 新版本中以这种形式设置feature id
       feature.setId(point.properties[opt.pointId])
@@ -584,6 +658,18 @@ OlMap.prototype.renderLayer = function(points, name, customOpt) {
           size: opt.image.size,
           scale: opt.image.scale,
           src: opt.image.srcType === 'all' ? opt.image.src : point.properties.imageSrc,
+          snapToPixel: opt.image.snapToPixel
+        })
+      } else if (opt.image.type === 'svg') {
+        imageStyle = new Icon({
+          anchor: opt.image.anchor,
+          anchorXUnits: opt.image.anchorXUnits,
+          anchorYUnits: opt.image.anchorYUnits,
+          opacity: point.properties[opt.pointValue] === '' ? 0 : opt.image.opacity,
+          offset: opt.image.offset,
+          imgSize: opt.image.size,
+          scale: opt.image.scale,
+          img: opt.image.srcType === 'all' ? opt.image.img : point.properties.img,
           snapToPixel: opt.image.snapToPixel
         })
       }
@@ -642,8 +728,62 @@ OlMap.prototype.renderLayer = function(points, name, customOpt) {
     this.setStatus('popupable', name)
   }
 }
+/**
+ * @name    setViewCenter
+ * @param   {array}  coordinate 包含经度纬度的数组[long, lat]
+ * @param   {number} zoom [可选参数] 放大级别，不传直接获得当前设定的放大级别
+ * @returns {void}
+ * @description  设定地图中心点
+ */
+OlMap.prototype.setViewCenter = function(coordinate, zoom) {
+  const view = this.map.getView()
+  view.animate({
+    center: transform(coordinate, this.DATA_PROJ, this.DEAFAULT_PROJ),
+    duration: 2000
+  })
+  if (zoom && !isNaN(zoom) && zoom > 0) {
+    view.setZoom(zoom)
+  }
+}
+/**
+ * @name featureFlash
+ * @param {string} layerName 图层名
+ * @param {number} featureId 要素id, 用于获取指定要素
+ * @param {function} callback [可选参数] 动画完成后的回调函数
+ * @returns {void}
+ * @description 指定要算闪动效果
+ */
+OlMap.prototype.featureFlash = function(layerName, featureId, callback) {
+  const layer = this.map.getLayer(layerName)
+  const source = layer.getSource()
+  const feature = source.getFeatureById(featureId)
+  this.setViewCenter(transform(feature.getGeometry().getCoordinates(), this.DEAFAULT_PROJ, this.DATA_PROJ))
+  const start = new Date().getTime()
+  const style = feature.getStyle()
+  const imageStyle = style.getImage()
+  let animationId = null
 
-// 利用代理模式暴露需要的属性和方法
+  const render = () => {
+    const time = Date.now() - start
+    const opacity = ((1 / 500) * time) % 1
+    //imageStyle.setOffset(0, -scale)
+    imageStyle.setOpacity(opacity)
+    feature.setStyle(style)
+    this.map.render()
+    if (time <= 5000) {
+      animationId = requestAnimationFrame(render)
+    } else {
+      cancelAnimationFrame(animationId)
+      imageStyle.setOpacity(1)
+      // 动画完成后的回调
+      if (typeof callback === 'function') {
+        callback()
+      }
+    }
+  }
+  render()
+}
+
 const CustomMap = (function() {
   // 单例模式的唯一实例化
   let gis = null
@@ -652,45 +792,19 @@ const CustomMap = (function() {
       gis = new OlMap(settings)
       // 实例化后增加额外的功能
       gis.tools()
-
       // 重新挂载到map上，在map上暴露调用方法
-      // 渲染图层，只针对vector类型图层
-      gis.map.getLayer = function(layerName) {
-        return gis.getLayer(layerName)
-      }
-      // 设置中心点位置
-      gis.map.setViewCenter = function(coordinate, zoom) {
-        return gis.setViewCenter(coordinate, zoom)
-      }
-      // 渲染图层，只针对vector类型图层
-      gis.map.renderLayer = function(geoData, name, customOpt) {
-        return gis.renderLayer(geoData, name, customOpt)
-      }
-      // 隐藏/显示站点
-      gis.map.togglePointVisible = function(layersName, visible) {
-        return gis.togglePointVisible(layersName, visible)
-      }
-      // 隐藏/显示图层
-      gis.map.toggleLayerVisible = function(layerName, visible) {
-        return gis.toggleLayerVisible(layerName, visible)
-      }
-      // 移除图层
-      gis.map.removeLayers = function(layerNames) {
-        return gis.removeLayers(layerNames)
-      }
 
-      // 站点之间连线
-      gis.map.connectLine = function(points, layerName, color, width) {
-        return gis.connectLine(points, layerName, color, width)
+      gis.map.getContainer = function() {
+        return gis.$element
       }
-
-      // 增加小型提示框
-      gis.map.addPopover = function(coordinate, positioning, id, contentHtml) {
-        return gis.addPopover(coordinate, positioning, id, contentHtml)
-      }
-      // 根据中心点坐标获取正多边形各个角坐标
-      gis.map.getRegularPolygonCoordinate = function(edgeLen, edgeNum, centerCoordinate) {
-        return gis.getRegularPolygonCoordinate(edgeLen, edgeNum, centerCoordinate)
+      const excludeMethods = ['tools']
+      // 利用代理模式暴露需要的属性和方法
+      for (let key in OlMap.prototype) {
+        if (Object.prototype.hasOwnProperty.call(OlMap.prototype, key) && !excludeMethods.includes(key)) {
+          gis.map[key] = function() {
+            return gis[key](...arguments)
+          }
+        }
       }
     }
 
