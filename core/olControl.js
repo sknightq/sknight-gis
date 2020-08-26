@@ -88,7 +88,7 @@ class SwitchTiles extends Control {
     }
     const method = map[methods[newTile.type]]
     if (newTile.tileLayer && typeof method === 'function') {
-      const newLayer = method(newTile.tileLayer.name, newTile.tileLayer.url, true)
+      const newLayer = method(newTile.tileLayer.name, newTile.tileLayer.url, null)
       map.addLayer(newLayer)
       if (oldTileLayer) {
         const zIndex = oldTileLayer.getZIndex()
@@ -98,7 +98,7 @@ class SwitchTiles extends Control {
     }
 
     if (newTile.labelLayer && typeof method === 'function') {
-      const newLayer = method(newTile.labelLayer.name, newTile.labelLayer.url, true)
+      const newLayer = method(newTile.labelLayer.name, newTile.labelLayer.url, null)
       map.addLayer(newLayer)
       if (oldLabelLayer) {
         const zIndex = oldLabelLayer.getZIndex()
