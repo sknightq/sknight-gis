@@ -2,15 +2,18 @@ import 'ol/ol.css'
 import { Map, View, Feature, Overlay } from 'ol'
 import GeoJSON from 'ol/format/GeoJSON'
 import { defaults as defaultControls, FullScreen, OverviewMap } from 'ol/control'
-import { transform, transformExtent } from 'ol/proj'
-import { boundingExtent } from 'ol/extent'
-import { Tile as TileLayer, Vector as VectorLayer, Heatmap as HeatmapLayer } from 'ol/layer'
+import { transform, transformExtent, addProjection, addCoordinateTransforms } from 'ol/proj'
+import Projection from 'ol/proj/Projection'
+import TileGrid from 'ol/tilegrid/TileGrid'
+import { boundingExtent, applyTransform } from 'ol/extent'
+import { Tile as TileLayer, Vector as VectorLayer, Image as ImageLayer, Heatmap as HeatmapLayer } from 'ol/layer'
+import ImageCanvasSource from 'ol/source/ImageCanvas'
 import * as geom from 'ol/geom'
 import { Stroke, Style, Fill, Circle, Text, Icon } from 'ol/style'
 import { XYZ, Vector as VectorSource } from 'ol/source'
-import { BackToCenter } from '@/assets/scripts/olControl.js'
+import { BackToCenter, SwitchTiles } from '@/assets/scripts/olControl.js'
 // import { dealCoord } from '@/assets/scripts/dealCoord.js'
-
+import projzh from 'projzh'
 const extend = require('extend')
 
 class OlMap {
@@ -23,9 +26,13 @@ class OlMap {
       crossOrigin: null,
       baseMap: [
         {
-          label: '基础底图',
-          url: 'https://b.tile.openstreetmap.org/{z}/{x}/{y}.png',
-          layerName: 'basic'
+          tileLayer: {
+            url: 'https://b.tile.openstreetmap.org/{z}/{x}/{y}.png',
+            name: 'basic-tile'
+          },
+          name: '基础底图',
+          key: 'basic',
+          type: 'wgs'
         }
       ]
     },
@@ -43,14 +50,16 @@ class OlMap {
       },
       overviewMap: {
         enable: false
+      },
+      switchTiles: {
+        enable: false
       }
     },
     tools: {
       popup: {
         enable: false, // 弹出框
         refs: null
-      },
-      switchTile: false // 底图切换
+      }
     },
     extent: {
       bound: []
@@ -103,6 +112,7 @@ class OlMap {
   view = function(options, extent) {
     return new View({
       center: transform(options.center, this.DATA_PROJ, this.DEAFAULT_PROJ),
+      constrainResolution: true,
       zoom: options.zoom,
       minZoom: options.minZoom,
       maxZoom: options.maxZoom,
@@ -112,32 +122,24 @@ class OlMap {
   layers = function(options) {
     const layers = []
     // 底图
-    const baseTileLayer = new TileLayer({
-      name: options.baseMap.tiles[0].layerName,
-      source: new XYZ({
-        url: options.baseMap.tiles[0].url,
-        crossOrigin: options.crossOrigin,
-        tileLoadFunction: function(tile, src) {
-          tile.getImage().src = src
-        }
-      })
-    })
-    baseTileLayer.setZIndex(this.zIndex['baseTileLayer'])
-    layers.push(baseTileLayer)
-
-    for (let i = 0; i < options.baseMap.labels.length; i++) {
-      const baseLabelLayer = new TileLayer({
-        name: options.baseMap.labels[i].layerName + i,
-        source: new XYZ({
-          url: options.baseMap.labels[i].url,
-          crossOrigin: options.crossOrigin,
-          tileLoadFunction: function(tile, src) {
-            tile.getImage().src = src
-          }
-        })
-      })
-      baseLabelLayer.setZIndex(this.zIndex['baseLabelLayer'] + i)
-      layers.push(baseLabelLayer)
+    if (options.baseMap.length) {
+      const baseMap = options.baseMap[0]
+      const methods = {
+        wgs: 'addWGSTileLayer',
+        gcj: 'addGCJTileLayer',
+        baidu: 'addBDTileLayer'
+      }
+      const method = this[methods[baseMap.type]]
+      if (baseMap.tileLayer && typeof method === 'function') {
+        const baseTileLayer = method(baseMap.tileLayer.name, baseMap.tileLayer.url, options.crossOrigin)
+        baseTileLayer.setZIndex(this.zIndex['baseTileLayer'])
+        layers.push(baseTileLayer)
+      }
+      if (baseMap.labelLayer && typeof method === 'function') {
+        const baseLabelLayer = method(baseMap.labelLayer.name, baseMap.labelLayer.url, options.crossOrigin)
+        baseLabelLayer.setZIndex(this.zIndex['baseLabelLayer'])
+        layers.push(baseLabelLayer)
+      }
     }
 
     // 行政边界
@@ -170,7 +172,7 @@ class OlMap {
     }
     return layers
   }
-  controls = function(options, viewOptions) {
+  controls = function(options, viewOptions, layersOptions) {
     const controlExtends = []
     const defaultOptions = {
       attributionOptions: /** @type {olx.control.AttributionOptions} */ ({
@@ -196,6 +198,14 @@ class OlMap {
         })
       )
     }
+    // 切换底图
+    if (options.switchTiles.enable) {
+      controlExtends.push(
+        new SwitchTiles({
+          tiles: layersOptions.baseMap
+        })
+      )
+    }
 
     return defaultControls(defaultOptions).extend(controlExtends)
   }
@@ -215,7 +225,7 @@ class OlMap {
       target: this.options.target,
       layers: this.layers(this.options.layers),
       view: this.view(this.options.view, this.options.extent),
-      controls: this.controls(this.options.controls, this.options.view)
+      controls: this.controls(this.options.controls, this.options.view, this.options.layers)
     })
 
     this.getZIndex = function(name) {
@@ -257,9 +267,7 @@ OlMap.prototype.tools = function() {
   this.map.on('singleclick', e => {
     console.log(transform(e.coordinate, this.DEAFAULT_PROJ, this.DATA_PROJ))
   })
-  // 切换底图功能
-  if (options.tools.switchTile) {
-  }
+
   if (options.tools.popup.enable) {
     // 用组建去获取
     const container = options.tools.popup.refs
@@ -297,13 +305,13 @@ OlMap.prototype.tools = function() {
 
         if (hit) {
           const coordinates = feature.getProperties().center
-          const stationInfo = feature.get('info') ? feature.get('info') : ''
+          const stationInfo = feature.get('data') ? feature.get('data') : ''
           const event = document.createEvent('HTMLEvents')
           // 初始化
           event.initEvent('stationclick', false, false)
           // 弹窗里的参数
           event.params = {
-            info: stationInfo,
+            data: stationInfo,
             overlay,
             container: content,
             layerName,
@@ -311,8 +319,18 @@ OlMap.prototype.tools = function() {
           }
           // 触发, 即弹出文字
           this.$element.dispatchEvent(event)
+          return true
+        } else {
+          const event = document.createEvent('HTMLEvents')
+          // 初始化
+          event.initEvent('emptyclick', false, false)
+          event.params = {
+            data: null,
+            overlay
+          }
+          this.$element.dispatchEvent(event)
+          return true
         }
-        return false
       } else {
         overlay.setPosition(undefined)
         closer.blur()
@@ -320,6 +338,129 @@ OlMap.prototype.tools = function() {
       }
     })
   }
+}
+OlMap.prototype.addWGSTileLayer = function(name, url, crossOrigin) {
+  return new TileLayer({
+    name,
+    source: new XYZ({
+      url,
+      crossOrigin,
+      tileLoadFunction: function(tile, src) {
+        tile.getImage().src = src
+      }
+    })
+  })
+}
+OlMap.prototype.addGCJTileLayer = function(name, url, crossOrigin) {
+  const mc2gcj02mc = function(input, optOutput, optDimension) {
+    var output = projzh.projection.sphericalMercator.inverse(input, optOutput, optDimension)
+    output = projzh.datum.gcj02.fromWGS84(output, output, optDimension)
+    return projzh.projection.sphericalMercator.forward(output, output, optDimension)
+  }
+
+  const gcj02mc2mc = function(input, optOutput, optDimension) {
+    var output = projzh.projection.sphericalMercator.inverse(input, optOutput, optDimension)
+    output = projzh.datum.gcj02.toWGS84(output, output, optDimension)
+    return projzh.projection.sphericalMercator.forward(output, output, optDimension)
+  }
+
+  const gcj02mc2ll = function(input, optOutput, optDimension) {
+    var output = projzh.projection.sphericalMercator.inverse(input, optOutput, optDimension)
+    return projzh.datum.gcj02.toWGS84(output, output, optDimension)
+  }
+
+  const ll2gcj02mc = function(input, optOutput, optDimension) {
+    var output = projzh.datum.gcj02.fromWGS84(input, optOutput, optDimension)
+    return projzh.projection.sphericalMercator.forward(output, output, optDimension)
+  }
+
+  const gcj02mc = new Projection({
+    code: 'GCJ02MC',
+    extent: applyTransform([-180, -90, 180, 90], ll2gcj02mc),
+    units: 'm'
+  })
+
+  addProjection(gcj02mc)
+  addCoordinateTransforms('EPSG:4326', gcj02mc, ll2gcj02mc, gcj02mc2ll)
+  addCoordinateTransforms('EPSG:3857', gcj02mc, mc2gcj02mc, gcj02mc2mc)
+
+  let resolutions = []
+  for (let i = 0; i < 19; i++) {
+    resolutions[i] = Math.pow(2, 18 - i) * 0.5971642833948135
+  }
+  return new TileLayer({
+    name,
+    source: new XYZ({
+      projection: gcj02mc,
+      url,
+      crossOrigin,
+      tileGrid: new TileGrid({
+        origin: [-20037508.342789244, 20037508.34278071],
+        minZoom: 3,
+        tileSize: [256, 256],
+        extent: transformExtent([-180, -90, 180, 90], 'EPSG:4326', 'GCJ02MC'),
+        resolutions: resolutions
+      })
+    })
+  })
+}
+
+OlMap.prototype.addBDTileLayer = function(name, url, crossOrigin) {
+  const extent = [-20037726.37, -12474104.17, 20037726.37, 12474104.17]
+
+  const baiduMercator = new Projection({
+    code: 'baidu',
+    extent: extent,
+    units: 'm'
+  })
+
+  addProjection(baiduMercator)
+  addCoordinateTransforms('EPSG:4326', baiduMercator, projzh.ll2bmerc, projzh.bmerc2ll)
+  addCoordinateTransforms('EPSG:3857', baiduMercator, projzh.smerc2bmerc, projzh.bmerc2smerc)
+
+  const bmercResolutions = new Array(19)
+  for (let i = 0; i < 19; ++i) {
+    bmercResolutions[i] = Math.pow(2, 18 - i)
+  }
+
+  const urls = [0, 1, 2, 3].map(function(sub) {
+    return 'http://maponline' + sub + '.bdimg.com/tile/?qt=vtile&x={x}&y={y}&z={z}&styles=pl&scaler=2&udt=20191119'
+  })
+
+  const tileLayer = new TileLayer({
+    name,
+    source: new XYZ({
+      projection: 'baidu',
+      url,
+      crossOrigin,
+      tileGrid: new TileGrid({
+        resolutions: bmercResolutions,
+        origin: [0, 0],
+        extent: extent,
+        tileSize: [256, 256]
+      }),
+      tilePixelRatio: 2,
+      tileUrlFunction: function(tileCoord) {
+        let x = tileCoord[1]
+        let y = -tileCoord[2] - 1
+        const z = tileCoord[0]
+        const hash = (x << z) + y
+        let index = hash % urls.length
+        index = index < 0 ? index + urls.length : index
+        if (x < 0) {
+          x = 'M' + -x
+        }
+        if (y < 0) {
+          y = 'M' + -y
+        }
+        return urls[index]
+          .replace('{x}', x)
+          .replace('{y}', y)
+          .replace('{z}', z)
+      }
+    })
+  })
+  return tileLayer
 }
 /**
  * @name   getLayer
@@ -337,6 +478,28 @@ OlMap.prototype.getLayer = function(layerName) {
   return false
 }
 
+OlMap.prototype.extent2Rect = function(extent, isFeature = true) {
+  const coordinates = [
+    [extent[0], extent[1]],
+    [extent[0], extent[3]],
+    [extent[2], extent[3]],
+    [extent[2], extent[1]]
+  ]
+
+  if (isFeature) {
+    coordinates.push(coordinates[0])
+    return {
+      type: 'Feature',
+      properties: {},
+      geometry: {
+        type: 'Polygon',
+        coordinates: [coordinates]
+      }
+    }
+  } else {
+    return coordinates
+  }
+}
 /**
  * @name    toggleLayerVisible
  * @param   {string}  layerName 需要切换隐藏显示的图层名
@@ -378,23 +541,27 @@ OlMap.prototype.transformCoordinates = function(coordinates) {
 
 OlMap.prototype.moveFeature = function(layerName, featureId, opts) {
   const layer = this.map.getLayer(layerName)
-  const source = layer.getSource()
-  const feature = source.getFeatureById(featureId)
-  let geometry = null
-  if (opts.type === 'Polygon') {
-    const regularPolygon = this.getRegularPolygonCoordinate(opts.edgeNum, opts.edgeLen, opts.coordinates, true)
-    const tempCoordinates = []
-    tempCoordinates.push(regularPolygon)
-    geometry = new geom[opts.type](tempCoordinates).transform(this.DATA_PROJ, this.DEAFAULT_PROJ)
-  } else {
-    geometry = new geom[opts.type](opts.coordinates).transform(this.DATA_PROJ, this.DEAFAULT_PROJ)
+  if (typeof layer.getSource === 'function') {
+    const source = layer.getSource()
+    const feature = source.getFeatureById(featureId)
+    let geometry = null
+    if (opts.type === 'Polygon') {
+      const regularPolygon = this.getRegularPolygonCoordinate(opts.edgeNum, opts.edgeLen, opts.coordinates, true)
+      const tempCoordinates = []
+      tempCoordinates.push(regularPolygon)
+      geometry = new geom[opts.type](tempCoordinates).transform(this.DATA_PROJ, this.DEAFAULT_PROJ)
+    } else {
+      geometry = new geom[opts.type](opts.coordinates).transform(this.DATA_PROJ, this.DEAFAULT_PROJ)
+    }
+    if (feature) {
+      let properties = feature.getProperties()
+      properties.center = transform(opts.coordinates, this.DATA_PROJ, this.DEAFAULT_PROJ)
+      feature.setProperties(properties)
+      feature.setGeometry(geometry)
+    }
+    // feature.setStyle(feature.getStyle())
+    // source.addFeature(feature)
   }
-  let properties = feature.getProperties()
-  properties.center = transform(opts.coordinates, this.DATA_PROJ, this.DEAFAULT_PROJ)
-  feature.setProperties(properties)
-  feature.setGeometry(geometry)
-  // feature.setStyle(feature.getStyle())
-  // source.addFeature(feature)
 }
 
 /**
@@ -509,6 +676,11 @@ OlMap.prototype.heatmap = function(features, name, visible = true, blur = 20, ra
     }
   })
   this.map.addLayer(heatmap)
+}
+OlMap.prototype.getXYPixel = function(extent, coordinates) {
+  const leftTopPixel = this.map.getPixelFromCoordinate([extent[0], extent[3]])
+  const pointPixel = this.map.getPixelFromCoordinate(transform(coordinates, this.DATA_PROJ, this.DEAFAULT_PROJ))
+  return [pointPixel[0] - leftTopPixel[0], pointPixel[1] - leftTopPixel[1]]
 }
 /**
  * @name renderLayer
@@ -746,14 +918,34 @@ OlMap.prototype.setViewCenter = function(coordinate, zoom) {
   }
 }
 /**
+ * @name d3Layer
+ * @param   {function} render 渲染函数 参数extent, resolution, pixelRatio, size, projection
+ * @param   {string} layerName 此图层名
+ * @param   {boolean} visible 图层是否显示
+ * @description 利用canvas绘制图形并渲染到地图中
+ * @returns {void}
+ */
+OlMap.prototype.imageCanvasLayer = function(render, layerName, visible = true) {
+  const layer = new ImageLayer({
+    name: layerName,
+    visible: visible,
+    source: new ImageCanvasSource({
+      canvasFunction: render
+    })
+  })
+  layer.setZIndex(this.getZIndex(layerName))
+  this.map.addLayer(layer)
+}
+/**
  * @name featureFlash
  * @param {string} layerName 图层名
  * @param {number} featureId 要素id, 用于获取指定要素
+ * @param {number} duration 跳动间隔， 单位毫秒
  * @param {function} callback [可选参数] 动画完成后的回调函数
  * @returns {void}
  * @description 指定要算闪动效果
  */
-OlMap.prototype.featureFlash = function(layerName, featureId, callback) {
+OlMap.prototype.featureFlash = function(layerName, featureId, duration, callback) {
   const layer = this.map.getLayer(layerName)
   const source = layer.getSource()
   const feature = source.getFeatureById(featureId)
@@ -770,7 +962,7 @@ OlMap.prototype.featureFlash = function(layerName, featureId, callback) {
     imageStyle.setOpacity(opacity)
     feature.setStyle(style)
     this.map.render()
-    if (time <= 5000) {
+    if (time <= duration) {
       animationId = requestAnimationFrame(render)
     } else {
       cancelAnimationFrame(animationId)
