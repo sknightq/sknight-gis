@@ -100,14 +100,14 @@
       var map = sntMap(gisOptions);
 
       map.once("postrender", function () {
-        var canvasFunctions = wind.init(
-          "./data/air/ningbo.topo.json",
-          "./data/air/current-ningbo.json",
-          "./data/air/stations-ningbo.json",
-          map
-        );
-        map.d3Layer(canvasFunctions.particle);
-        map.d3Layer(canvasFunctions.contour);
+//         var canvasFunctions = wind.init(
+//           "./data/air/ningbo.topo.json",
+//           "./data/air/current-ningbo.json",
+//           "./data/air/stations-ningbo.json",
+//           map
+//         );
+//         map.d3Layer(canvasFunctions.particle);
+//         map.d3Layer(canvasFunctions.contour);
       });
     });
   </script>
